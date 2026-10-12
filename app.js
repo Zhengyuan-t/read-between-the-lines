@@ -7,6 +7,8 @@ let articles = [], active = null, visibleEntries = [], activeId = null;
 let database = null, hot = null, selected = null, geometry = [], geometryDirty = true;
 let lastPointer = null, pointerStart = null, busy = false, recording = false, draftKeys = ['Space'];
 const held = new Set();
+let touchPress = null;
+function cancelTouchPress(){if(touchPress){clearTimeout(touchPress.timer);touchPress=null;}}
 let settings = {keys: ['Space'], fontSize: 22};
 try { const s = JSON.parse(localStorage.getItem(storageScope + 'judu-settings')); if (s && Array.isArray(s.keys) && s.keys.length && s.keys.length < 8) settings = {keys:s.keys, fontSize: Math.min(32,Math.max(18,Number(s.fontSize)||22))}; } catch {}
 const keyName = (code) => ({Space:'空格',Alt:'Option / Alt',Shift:'Shift',Control:'Control',Meta:'⌘ Command',ArrowUp:'↑',ArrowDown:'↓',ArrowLeft:'←',ArrowRight:'→',Backquote:'`',Minus:'-',Equal:'=',BracketLeft:'[',BracketRight:']',Backslash:'\\',Semicolon:';',Quote:"'",Comma:',',Period:'.',Slash:'/',CapsLock:'Caps Lock'}[code] || code.replace(/^Key|^Digit/,''));
@@ -25,6 +27,7 @@ function renderLibrary() {
   articles.forEach(a=>{const btn=element('button',undefined,'library-item'+(a.id===activeId?' active':''));btn.setAttribute('aria-current',a.id===activeId?'page':'false');btn.append(element('strong',a.title),element('small',`${a.entries.length} 句${a.sample?' · 示例文章':''}`));btn.onclick=()=>selectArticle(a.id);$('library').append(btn);});
 }
 function selectArticle(id) {
+  cancelTouchPress();
   closeLookup(false);clearHot();activeId=id;active=articles.find(a=>a.id===id)||null;
   try{localStorage.setItem(storageScope + 'judu-active',id||'');}catch{}
   renderLibrary();reader.replaceChildren();visibleEntries=[];geometryDirty=true;
@@ -69,11 +72,28 @@ function hitSentence(x,y){
 function chordDown(e){const available=new Set(held);if(e?.altKey)available.add('Alt');if(e?.ctrlKey)available.add('Control');if(e?.metaKey)available.add('Meta');if(e?.shiftKey)available.add('Shift');return settings.keys.every(key=>available.has(key));}
 function clearHot(){hot?.classList.remove('hot');hot=null;}
 function updateHot(e){if(recording||!chordDown(e)){clearHot();return;}const next=hitSentence(e.clientX,e.clientY);if(next!==hot){clearHot();hot=next;hot?.classList.add('hot');}}
-reader.addEventListener('pointermove',e=>{lastPointer=e;updateHot(e);});
+reader.addEventListener('pointermove',e=>{
+  if(e.pointerType==='touch'){
+    if(touchPress&&e.pointerId===touchPress.id&&Math.hypot(e.clientX-touchPress.x,e.clientY-touchPress.y)>10)cancelTouchPress();
+    return;
+  }
+  lastPointer=e;updateHot(e);
+});
 reader.addEventListener('pointerleave',()=>{lastPointer=null;clearHot();});
-reader.addEventListener('pointerdown',e=>{if(e.button!==0||!chordDown(e))return;const span=hitSentence(e.clientX,e.clientY);if(!span)return;e.preventDefault();pointerStart={x:e.clientX,y:e.clientY,span};});
+reader.addEventListener('pointerdown',e=>{
+  if(e.pointerType==='touch'){
+    if(!e.isPrimary){cancelTouchPress();return;}
+    cancelTouchPress();const span=hitSentence(e.clientX,e.clientY);if(!span)return;
+    const press={id:e.pointerId,x:e.clientX,y:e.clientY,span,timer:null};touchPress=press;
+    press.timer=setTimeout(()=>{if(touchPress!==press)return;touchPress=null;showLookup(span,press.x,press.y);},550);
+    return;
+  }
+  if(e.button!==0||!chordDown(e))return;const span=hitSentence(e.clientX,e.clientY);if(!span)return;e.preventDefault();pointerStart={x:e.clientX,y:e.clientY,span};});
 reader.addEventListener('pointerup',e=>{const start=pointerStart;pointerStart=null;if(!start||e.button!==0||Math.hypot(start.x-e.clientX,start.y-e.clientY)>6)return;const span=hitSentence(e.clientX,e.clientY);if(span===start.span){e.preventDefault();showLookup(span,e.clientX,e.clientY);}});
-document.addEventListener('pointerup',()=>{pointerStart=null;});
+document.addEventListener('pointerup',()=>{pointerStart=null;cancelTouchPress();});
+document.addEventListener('pointercancel',()=>{pointerStart=null;cancelTouchPress();});
+document.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'&&!e.isPrimary)cancelTouchPress();});
+reader.addEventListener('contextmenu',e=>{if(e.pointerType==='touch'||matchMedia('(hover: none) and (pointer: coarse)').matches)e.preventDefault();});
 reader.addEventListener('keydown',e=>{if(e.code==='Enter'&&e.target.classList.contains('sentence')){e.preventDefault();const r=e.target.getClientRects()[0];showLookup(e.target,r.left,r.bottom,true);}});
 function analysisSections(text){
   const sections=[];let current={title:'句子解析',lines:[]};
@@ -96,11 +116,11 @@ function showLookup(span,x,y,keyboard=false){
 function closeLookup(restoreFocus=false){lookup.hidden=true;if(restoreFocus)selected?.focus({preventScroll:true});selected?.classList.remove('selected');selected=null;}
 $('lookup-close').onclick=()=>closeLookup(true);
 document.addEventListener('pointerdown',e=>{if(!lookup.hidden&&!lookup.contains(e.target)){if(reader.contains(e.target)&&chordDown(e))return;closeLookup(false);}});
-window.addEventListener('scroll',()=>closeLookup(false),{passive:true});
+window.addEventListener('scroll',()=>{cancelTouchPress();closeLookup(false);},{passive:true});
 window.addEventListener('resize',()=>{geometryDirty=true;closeLookup(false);});
 new ResizeObserver(()=>{geometryDirty=true;}).observe(reader);
 document.fonts?.ready.then(()=>{geometryDirty=true;});
-function resetHeld(){held.clear();pointerStart=null;clearHot();}
+function resetHeld(){cancelTouchPress();held.clear();pointerStart=null;clearHot();}
 window.addEventListener('blur',resetHeld);document.addEventListener('visibilitychange',resetHeld);
 document.addEventListener('keydown',e=>{
   if(e.isComposing)return;
@@ -165,3 +185,7 @@ async function start(){applySettings();try{database=await openDatabase();article
   fetch('assets/AI提示词.md').then(r=>r.ok?r.text():Promise.reject()).then(t=>$('prompt-text').value=t).catch(()=>$('prompt-text').value='提示词文件加载失败，请查看文件夹内的 AI提示词.md。');
 }
 start();
+
+const touchMedia=matchMedia('(hover: none) and (pointer: coarse)');
+function updateTouchHint(){document.documentElement.classList.toggle('touch-reader',touchMedia.matches);}
+updateTouchHint();touchMedia.addEventListener('change',updateTouchHint);

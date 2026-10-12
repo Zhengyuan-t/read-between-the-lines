@@ -27,7 +27,7 @@
     <div class="page-meta"><span class="eyebrow">YOUR SLOW READING SPACE</span><span class="save-state" id="save-state">就绪</span></div>
     <h1 id="article-title">让每个句子，都读得明白。</h1>
     <div class="article-meta" id="article-meta">从一张两列的 Excel 开始。</div>
-    <div class="hint" id="hint"><span class="hint-icon">⌁</span><span>按住 <kbd id="shortcut-label">空格</kbd> ＋ 左键点击句子，查看完整翻译与语法解析。</span><button id="hint-settings" aria-label="修改查询快捷键">修改</button></div>
+    <div class="hint" id="hint"><span class="hint-icon">⌁</span><span class="desktop-hint">按住 <kbd id="shortcut-label">空格</kbd> ＋ 左键点击句子，查看完整翻译与语法解析。</span><span class="touch-hint">长按句子约半秒，查看完整翻译与语法解析。</span><button id="hint-settings" aria-label="修改查询快捷键">修改</button></div>
     <div id="notice" role="status" hidden></div>
     <article id="reader" aria-label="文章正文"></article>
     <section id="empty-state"><div class="empty-symbol">Aa<span>。</span></div><h2>把你的文章，变成互动读本</h2><p>第一列写句子，第二列写翻译与解析。<br>拖入 Excel，按原顺序连成文章。</p><button id="empty-import" class="primary">选择 .xlsx 文件</button><button id="empty-sample" class="secondary">先读一篇示例</button><p class="small">支持 .xlsx、.csv · 每张工作表一篇文章 · 空行表示分段</p></section>
@@ -50,7 +50,7 @@
   <div class="dialog-actions"><button id="reset-settings" class="secondary">恢复默认</button><button id="save-settings" class="primary">保存设置</button></div>
 </dialog>
 <dialog id="guide-dialog"><form method="dialog"><div class="dialog-title"><h2>从文章到互动读本</h2><button class="icon-button" aria-label="关闭说明">×</button></div></form>
-  <ol class="guide-steps"><li><b>让 AI 分句并解析</b><p>复制下方提示词，把原文附在末尾，让 AI 生成 Excel。</p></li><li><b>导入两列 Excel</b><p>第一列是完整句子，第二列是该句的翻译与解析。按行排列，一句一行，空行分段。每张工作表会成为一篇文章。</p></li><li><b>按住快捷键，点击句子</b><p>句子会轻微高亮；点击文字或紧邻文字的行内空白，查看该句解析。也可用 Tab 选中句子后按 Enter。</p></li></ol>
+  <ol class="guide-steps"><li><b>让 AI 分句并解析</b><p>复制下方提示词，把原文附在末尾，让 AI 生成 Excel。</p></li><li><b>导入两列 Excel</b><p>第一列是完整句子，第二列是该句的翻译与解析。按行排列，一句一行，空行分段。每张工作表会成为一篇文章。</p></li><li><b>按住快捷键，点击句子</b><p>电脑端按住快捷键并点击句子；手机端长按句子约半秒，滑动阅读不会触发解析。也可用 Tab 选中句子后按 Enter。</p></li></ol>
   <div class="download-row"><a href="assets/示例文章.xlsx" download>下载示例 Excel ↗</a><a href="assets/AI提示词.md" download>下载 AI 提示词 ↗</a></div>
   <details><summary>已有单独的原文 TXT？</summary><p>先导入解析 Excel，再点击“匹配原文 TXT”。网站保留原文段落，仅匹配文字一致的句子（忽略重复空白、弯直引号差异）；未匹配内容会标明，不会套用其他句子的解析。重复句按各自出现的顺序匹配。</p></details>
   <label class="field-label" for="prompt-text">给 AI 的提示词</label><textarea id="prompt-text" readonly rows="12"></textarea><button id="copy-prompt" class="primary">复制完整提示词</button>
