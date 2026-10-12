@@ -2,3 +2,8 @@
 
 .touch-hint{display:none}.touch-reader .desktop-hint{display:none}.touch-reader .touch-hint{display:block;flex:1}.touch-reader #hint-settings{display:none}
 @media(hover:none) and (pointer:coarse){#reader{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:pan-y pinch-zoom}.lookup{-webkit-user-select:text;user-select:text}.lookup .icon-button{width:44px;height:44px}}
+
+/* Apply to each text element, including Safari and desktop-mode touch input. */
+.touch-reader #reader,.touch-reader #reader *,.touch-input #reader,.touch-input #reader *{-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important}
+.touch-input #reader{touch-action:pan-y pinch-zoom}.touch-input .desktop-hint{display:none}.touch-input .touch-hint{display:block;flex:1}.touch-input #hint-settings{display:none}
+#lookup,#lookup *{-webkit-user-select:text;user-select:text}

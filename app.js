@@ -82,8 +82,11 @@ reader.addEventListener('pointermove',e=>{
 reader.addEventListener('pointerleave',()=>{lastPointer=null;clearHot();});
 reader.addEventListener('pointerdown',e=>{
   if(e.pointerType==='touch'){
+    document.documentElement.classList.add('touch-input');
     if(!e.isPrimary){cancelTouchPress();return;}
     cancelTouchPress();const span=hitSentence(e.clientX,e.clientY);if(!span)return;
+    if(e.cancelable)e.preventDefault();
+    window.getSelection()?.removeAllRanges();
     const press={id:e.pointerId,x:e.clientX,y:e.clientY,span,timer:null};touchPress=press;
     press.timer=setTimeout(()=>{if(touchPress!==press)return;touchPress=null;showLookup(span,press.x,press.y);},550);
     return;
@@ -93,7 +96,14 @@ reader.addEventListener('pointerup',e=>{const start=pointerStart;pointerStart=nu
 document.addEventListener('pointerup',()=>{pointerStart=null;cancelTouchPress();});
 document.addEventListener('pointercancel',()=>{pointerStart=null;cancelTouchPress();});
 document.addEventListener('pointerdown',e=>{if(e.pointerType==='touch'&&!e.isPrimary)cancelTouchPress();});
-reader.addEventListener('contextmenu',e=>{if(e.pointerType==='touch'||matchMedia('(hover: none) and (pointer: coarse)').matches)e.preventDefault();});
+function isTouchReading(){return document.documentElement.classList.contains('touch-input')||document.documentElement.classList.contains('touch-reader');}
+reader.addEventListener('contextmenu',e=>{if(e.pointerType==='touch'||isTouchReading())e.preventDefault();});
+reader.addEventListener('selectstart',e=>{if(isTouchReading())e.preventDefault();},true);
+document.addEventListener('selectionchange',()=>{
+  if(!isTouchReading())return;const selection=window.getSelection();
+  if(selection&&!selection.isCollapsed&&(reader.contains(selection.anchorNode)||reader.contains(selection.focusNode)))selection.removeAllRanges();
+});
+document.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse')document.documentElement.classList.remove('touch-input');},true);
 reader.addEventListener('keydown',e=>{if(e.code==='Enter'&&e.target.classList.contains('sentence')){e.preventDefault();const r=e.target.getClientRects()[0];showLookup(e.target,r.left,r.bottom,true);}});
 function analysisSections(text){
   const sections=[];let current={title:'句子解析',lines:[]};
