@@ -42,6 +42,7 @@ function selectArticle(id) {
   $('text-button').disabled=!active;$('delete-button').disabled=!active;$('empty-state').hidden=!!active;
   renderHome();
   $('vocab-tools').hidden=!active;
+  renderReadingWrapUp();
   if(!active){$('article-title').textContent='让每个句子，都读得明白。';$('toolbar-title').textContent='我的文章';$('article-meta').textContent=articles.length?'你的文章都在这里，选择一篇开始阅读。':'导入 Excel 或粘贴解析文本，开始阅读。';$('footer-count').textContent='留一点时间，给理解。';notify('');return;}
   $('article-title').textContent=active.title;$('toolbar-title').textContent=active.title;
   const paragraphs = active.matchedParagraphs || groupRows(active.entries);
@@ -196,6 +197,7 @@ function showLookup(span,x,y,keyboard=false){
     for(const section of analysisSections(entry.analysis)){const box=element('section',undefined,'analysis-section'+(/翻译/.test(section.title)?' translation':''));box.append(element('h3',section.title),element('p',section.lines.join('\n').trim()));$('lookup-analysis').append(box);}
   }
   updateReviewSave();
+  updateLookupButtons();
   advanceTutorial('open');
   lookup.hidden=false;lookup.scrollTop=0;lookup.style.visibility='hidden';lookup.style.left='12px';lookup.style.top='12px';
   requestAnimationFrame(()=>{const w=lookup.offsetWidth,h=lookup.offsetHeight;const left=Math.min(Math.max(12,x-24),innerWidth-w-12);let top=y+18;if(top+h>innerHeight-12)top=y-h-18;if(top<12)top=Math.max(12,Math.min(innerHeight-h-12,y-h/2));lookup.style.left=left+'px';lookup.style.top=top+'px';lookup.style.visibility='visible';if(keyboard)lookup.focus({preventScroll:true});});
