@@ -24,13 +24,13 @@ async function saveArticle(article) { try{await dbAction('readwrite',store=>stor
 function applySettings() { document.documentElement.style.setProperty('--font-size', settings.fontSize+'px');$('shortcut-label').textContent=chordLabel(settings.keys);geometryDirty=true;clearHot(); }
 function renderLibrary() {
   $('library').replaceChildren();$('library-count').textContent=articles.length;
-  articles.forEach(a=>{const btn=element('button',undefined,'library-item'+(a.id===activeId?' active':''));btn.setAttribute('aria-current',a.id===activeId?'page':'false');btn.append(element('strong',a.title),element('small',`${a.entries.length} 句${a.sample?' · 示例文章':''}`));btn.onclick=()=>selectArticle(a.id);$('library').append(btn);});
+  articles.forEach(a=>{const btn=element('button',undefined,'library-item'+(a.id===activeId?' active':''));btn.setAttribute('aria-current',a.id===activeId?'page':'false');btn.append(element('strong',a.title),element('small',`${a.entries.length} 句${a.sample?' · 示例文章':a.filename?' · '+a.filename:''}`));btn.onclick=()=>navigateToArticle(a.id);$('library').append(btn);});
 }
 function selectArticle(id) {
   cancelTouchPress();
   closeLookup(false);clearHot();activeId=id;active=articles.find(a=>a.id===id)||null;
   try{localStorage.setItem(storageScope + 'judu-active',id||'');}catch{}
-  renderLibrary();reader.replaceChildren();visibleEntries=[];geometryDirty=true;
+  renderLibrary();renderArticleNavigation();reader.replaceChildren();visibleEntries=[];geometryDirty=true;
   $('text-button').disabled=!active;$('delete-button').disabled=!active;$('empty-state').hidden=!!active;
   if(!active){$('article-title').textContent='让每个句子，都读得明白。';$('toolbar-title').textContent='开始阅读';$('article-meta').textContent='从一张两列的 Excel 开始。';$('footer-count').textContent='留一点时间，给理解。';notify('');return;}
   $('article-title').textContent=active.title;$('toolbar-title').textContent=active.title;
@@ -48,16 +48,43 @@ function selectArticle(id) {
   notify(warns.length?warns.slice(0,8).join('\n')+(warns.length>8?`\n另有 ${warns.length-8} 条提示。`:''):'');
 }
 function groupRows(entries){const groups=[];let last=null;for(const entry of entries){if(last!==entry.paragraph){groups.push([]);last=entry.paragraph;}const p=groups.at(-1);if(p.length)p.push({gap:true,sentence:' '});p.push(entry);}return groups;}
-async function importFile(file){
-  if(!file||busy)return;if(!/\.(xlsx|csv)$/i.test(file.name)){toast('请选择 .xlsx 或 .csv；旧版 .xls 请先另存为 .xlsx。');return;}
-  if(file.size>10*1024*1024){toast('文件不能超过 10 MB。');return;}
-  busy=true;$('import-button').disabled=true;$('import-button').textContent='正在整理文章…';
+function renderArticleNavigation(){
+  const index=articles.findIndex(a=>a.id===activeId);
+  $('article-navigation').hidden=index<0;
+  if(index<0)return;
+  const previous=articles[index-1],next=articles[index+1];
+  $('article-position').textContent=`第 ${index+1} / ${articles.length} 篇`;
+  $('previous-article').disabled=!previous;$('next-article').disabled=!next;
+  $('previous-title').textContent=previous?.title||'已经是第一篇';
+  $('next-title').textContent=next?.title||'已经是最后一篇';
+}
+function navigateToArticle(id){selectArticle(id);$('article-title').scrollIntoView({block:'start'});}
+$('previous-article').onclick=()=>{const i=articles.findIndex(a=>a.id===activeId);if(i>0)navigateToArticle(articles[i-1].id);};
+$('next-article').onclick=()=>{const i=articles.findIndex(a=>a.id===activeId);if(i>=0&&i<articles.length-1)navigateToArticle(articles[i+1].id);};
+async function importFiles(input){
+  const files=Array.from(input||[]);if(!files.length||busy)return;
+  busy=true;$('import-button').disabled=true;
+  const added=[],failures=[],batchId=crypto.randomUUID(),createdAt=Date.now();
   try{
-    const result=await ReaderImport.read(file);
-    const added=result.articles.map(a=>({...a,title:result.articles.length===1&&/^(Sheet\d*|工作表\d*)$/i.test(a.title)?file.name.replace(/\.[^.]+$/,''):a.title,id:crypto.randomUUID(),filename:file.name,createdAt:Date.now()}));
-    for(const a of added){articles.unshift(a);await saveArticle(a);}selectArticle(added[0].id);toast(`已导入 ${added.length} 篇文章，共 ${added.reduce((n,a)=>n+a.entries.length,0)} 句`);
-  }catch(err){toast(err.message||'导入失败，请检查文件格式。');}
-  finally{busy=false;$('import-button').disabled=false;$('import-button').textContent='＋ 导入 Excel 文章';$('file-input').value='';}
+    for(let i=0;i<files.length;i++){
+      const file=files[i];$('import-button').textContent=`正在导入 ${i+1} / ${files.length}…`;
+      try{
+        if(!/\.(xlsx|csv)$/i.test(file.name))throw Error('仅支持 .xlsx 或 .csv，旧 .xls 请先另存为 .xlsx。');
+        if(file.size>10*1024*1024)throw Error('文件不能超过 10 MB。');
+        const result=await ReaderImport.read(file);
+        for(const a of result.articles){
+          added.push({...a,title:result.articles.length===1&&/^(Sheet\d*|工作表\d*)$/i.test(a.title)?file.name.replace(/\.[^.]+$/,''):a.title,id:crypto.randomUUID(),filename:file.name,createdAt,batchId,batchIndex:added.length});
+        }
+      }catch(err){failures.push(`${file.name}：${err.message||'导入失败'}`);}
+    }
+    if(added.length){
+      if(failures.length)added[0].warnings=[...(added[0].warnings||[]),'以下文件未导入：\n'+failures.join('\n')];
+      articles.unshift(...added);
+      for(const a of added)await saveArticle(a);
+      navigateToArticle(added[0].id);
+      toast(`已导入 ${added.length} 篇文章，共 ${added.reduce((n,a)=>n+a.entries.length,0)} 句${failures.length?`；${failures.length} 个文件失败，详情见正文上方`:''}`);
+    }else toast(failures.slice(0,3).join('\n')||'没有找到可导入的文章。');
+  }finally{busy=false;$('import-button').disabled=false;$('import-button').textContent='＋ 导入 Excel 文章';$('file-input').value='';}
 }
 async function loadSample(){
   const previous=articles.find(a=>a.sample);if(previous){selectArticle(previous.id);return;}
@@ -158,7 +185,7 @@ $('copy-analysis').onclick=()=>{if(selected){const a=visibleEntries[Number(selec
 $('copy-prompt').onclick=()=>copy($('prompt-text').value);
 $('guide-button').onclick=()=>$('guide-dialog').showModal();
 $('import-button').onclick=$('empty-import').onclick=()=>$('file-input').click();
-$('file-input').onchange=e=>importFile(e.target.files[0]);
+$('file-input').onchange=e=>importFiles(e.target.files);
 $('sample-button').onclick=$('empty-sample').onclick=loadSample;
 $('delete-button').onclick=()=>$('confirm-dialog').showModal();
 $('confirm-dialog').addEventListener('close',async()=>{if($('confirm-dialog').returnValue!=='delete'||!active)return;try{await dbAction('readwrite',store=>store.delete(active.id));}catch{}articles=articles.filter(a=>a.id!==activeId);selectArticle(articles[0]?.id||null);});
@@ -166,7 +193,7 @@ let dragDepth=0;
 document.addEventListener('dragenter',e=>{if(e.dataTransfer.types.includes('Files')){e.preventDefault();dragDepth++;$('drop-overlay').hidden=false;}});
 document.addEventListener('dragover',e=>{if(e.dataTransfer.types.includes('Files'))e.preventDefault();});
 document.addEventListener('dragleave',()=>{if(--dragDepth<=0){dragDepth=0;$('drop-overlay').hidden=true;}});
-document.addEventListener('drop',e=>{e.preventDefault();dragDepth=0;$('drop-overlay').hidden=true;const files=e.dataTransfer.files;if(files.length>1){toast('请每次导入一个文件；文件内可有多张工作表。');return;}importFile(files[0]);});
+document.addEventListener('drop',e=>{e.preventDefault();dragDepth=0;$('drop-overlay').hidden=true;importFiles(e.dataTransfer.files);});
 // Canonical text with offsets into the original, used only for exact matching.
 function normalizeMapped(text){let value='',map=[];for(let i=0;i<text.length;i++){let c=text[i];if(/[\s\u00a0]/.test(c)){if(value.endsWith(' '))continue;c=' ';}else if(/[‘’]/.test(c))c="'";else if(/[“”]/.test(c))c='"';value+=c;map.push(i);}return{value,map};}
 const normalized=text=>normalizeMapped(text).value.trim();
@@ -189,10 +216,10 @@ $('text-input').onchange=async e=>{
   const file=e.target.files[0];if(!file||!active)return;const target=active;
   try{if(file.size>500*1024)throw Error('原文 TXT 请控制在 500 KB 以内。');const text=await file.text();if(!text.trim())throw Error('原文为空。');if(text.includes('\ufffd'))throw Error('TXT 编码无法识别，请保存为 UTF-8。');const result=matchOriginal(text,target.entries);target.matchedParagraphs=result.paragraphs;target.matchReport=`原文匹配：${result.used} 句已关联；${result.unused} 条 Excel 句子未在原文找到；${result.missingChunks} 处原文未匹配（以虚线标示）。`;await saveArticle(target);if(activeId===target.id)selectArticle(target.id);toast('原文已载入，匹配结果显示在正文上方。');}catch(err){toast(err.message);}finally{e.target.value='';}
 };
-async function start(){applySettings();try{database=await openDatabase();articles=await dbAction('readonly',store=>store.getAll());articles.sort((a,b)=>b.createdAt-a.createdAt);}catch{$('save-state').textContent='浏览器存储不可用';}
+async function start(){applySettings();try{database=await openDatabase();articles=await dbAction('readonly',store=>store.getAll());articles.sort((a,b)=>b.createdAt-a.createdAt||(a.batchIndex??0)-(b.batchIndex??0));}catch{$('save-state').textContent='浏览器存储不可用';}
   let id=null;try{id=localStorage.getItem(storageScope + 'judu-active');}catch{}
   if(articles.length)selectArticle(articles.find(a=>a.id===id)?.id||articles[0].id);else selectArticle(null);
-  fetch('assets/AI提示词.md').then(r=>r.ok?r.text():Promise.reject()).then(t=>$('prompt-text').value=t).catch(()=>$('prompt-text').value='提示词文件加载失败，请查看文件夹内的 AI提示词.md。');
+  fetch('assets/AI提示词.md?v=20261018-1').then(r=>r.ok?r.text():Promise.reject()).then(t=>$('prompt-text').value=t).catch(()=>$('prompt-text').value='提示词文件加载失败，请查看文件夹内的 AI提示词.md。');
 }
 start();
 

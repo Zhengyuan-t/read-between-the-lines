@@ -4,14 +4,14 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>句读 · 互动英文阅读</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232f5145'/%3E%3Ctext x='32' y='45' text-anchor='middle' fill='white' font-size='42'%3E句%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=20261012-3"><script src="vendor/jszip.min.js" defer></script><script src="import-browser.js" defer></script><script src="app.js?v=20261012-3" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20261018-1"><script src="vendor/jszip.min.js" defer></script><script src="import-browser.js" defer></script><script src="app.js?v=20261018-1" defer></script>
 </head>
 <body>
 <aside class="sidebar">
   <a class="brand" href="./" aria-label="句读首页"><span class="brand-mark">句</span><span>句读<small>READ BETWEEN THE LINES</small></span></a>
   <div class="local-label"><span></span> 我的阅读空间</div>
   <button class="primary import-button" id="import-button"><span aria-hidden="true">＋</span> 导入 Excel 文章</button>
-  <input type="file" id="file-input" accept=".xlsx,.csv" hidden>
+  <input type="file" id="file-input" accept=".xlsx,.csv" multiple hidden>
   <div class="library-heading"><span>我的文章</span><span id="library-count">0</span></div>
   <nav id="library" aria-label="文章列表"></nav>
   <div class="sidebar-bottom">
@@ -30,8 +30,8 @@
     <div class="hint" id="hint"><span class="hint-icon">⌁</span><span class="desktop-hint">按住 <kbd id="shortcut-label">空格</kbd> ＋ 左键点击句子，查看完整翻译与语法解析。</span><span class="touch-hint">长按句子约半秒，查看完整翻译与语法解析。</span><button id="hint-settings" aria-label="修改查询快捷键">修改</button></div>
     <div id="notice" role="status" hidden></div>
     <article id="reader" aria-label="文章正文"></article>
-    <section id="empty-state"><div class="empty-symbol">Aa<span>。</span></div><h2>把你的文章，变成互动读本</h2><p>第一列写句子，第二列写翻译与解析。<br>拖入 Excel，按原顺序连成文章。</p><button id="empty-import" class="primary">选择 .xlsx 文件</button><button id="empty-sample" class="secondary">先读一篇示例</button><p class="small">支持 .xlsx、.csv · 每张工作表一篇文章 · 空行表示分段</p></section>
-    <footer class="reading-footer"><span id="footer-count">留一点时间，给理解。</span><span>句读 / READ WITH INTENTION</span></footer>
+    <section id="empty-state"><div class="empty-symbol">Aa<span>。</span></div><h2>把你的文章，变成互动读本</h2><p>第一列写句子，第二列写翻译与解析。<br>拖入 Excel，按原顺序连成文章。</p><button id="empty-import" class="primary">选择 .xlsx 文件</button><button id="empty-sample" class="secondary">先读一篇示例</button><p class="small">支持 .xlsx、.csv · 可同时选择多个文件 · 每张工作表一篇文章 · 空行表示分段</p></section>
+    <nav id="article-navigation" class="article-navigation" aria-label="篇章导航" hidden><p id="article-position"></p><div><button id="previous-article" class="article-nav-button"><span>← 上一篇</span><strong id="previous-title"></strong></button><button id="next-article" class="article-nav-button"><span>下一篇 →</span><strong id="next-title"></strong></button></div></nav><footer class="reading-footer"><span id="footer-count">留一点时间，给理解。</span><span>句读 / READ WITH INTENTION</span></footer>
   </div>
 </main>
 <div id="drop-overlay" hidden><div>松开，导入你的文章<small>Excel .xlsx 或 CSV 文件</small></div></div>
@@ -50,7 +50,7 @@
   <div class="dialog-actions"><button id="reset-settings" class="secondary">恢复默认</button><button id="save-settings" class="primary">保存设置</button></div>
 </dialog>
 <dialog id="guide-dialog"><form method="dialog"><div class="dialog-title"><h2>从文章到互动读本</h2><button class="icon-button" aria-label="关闭说明">×</button></div></form>
-  <ol class="guide-steps"><li><b>让 AI 分句并解析</b><p>复制下方提示词，把原文附在末尾，让 AI 生成 Excel。</p></li><li><b>导入两列 Excel</b><p>第一列是完整句子，第二列是该句的翻译与解析。按行排列，一句一行，空行分段。每张工作表会成为一篇文章。</p></li><li><b>按住快捷键，点击句子</b><p>电脑端按住快捷键并点击句子；手机端长按句子约半秒，滑动阅读不会触发解析。也可用 Tab 选中句子后按 Enter。</p></li></ol>
+  <ol class="guide-steps"><li><b>让 AI 分句并解析</b><p>复制下方提示词，把原文附在末尾，让 AI 生成 Excel。</p></li><li><b>导入两列 Excel</b><p>第一列是完整句子，第二列是该句的翻译与解析。按行排列，一句一行，空行分段。每张工作表会成为一篇文章，工作表名称是文章标题；多篇请按阅读顺序排列工作表。可以同时选择或拖入多个 Excel 文件，同批次按文件选择顺序、工作表顺序导入。空行只用于分段，不用于区分文章。</p></li><li><b>按住快捷键，点击句子</b><p>电脑端按住快捷键并点击句子；手机端长按句子约半秒，滑动阅读不会触发解析。也可用 Tab 选中句子后按 Enter。</p></li></ol>
   <div class="download-row"><a href="assets/示例文章.xlsx" download>下载示例 Excel ↗</a><a href="assets/AI提示词.md" download>下载 AI 提示词 ↗</a></div>
   <details><summary>已有单独的原文 TXT？</summary><p>先导入解析 Excel，再点击“匹配原文 TXT”。网站保留原文段落，仅匹配文字一致的句子（忽略重复空白、弯直引号差异）；未匹配内容会标明，不会套用其他句子的解析。重复句按各自出现的顺序匹配。</p></details>
   <label class="field-label" for="prompt-text">给 AI 的提示词</label><textarea id="prompt-text" readonly rows="12"></textarea><button id="copy-prompt" class="primary">复制完整提示词</button>
