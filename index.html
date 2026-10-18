@@ -4,10 +4,10 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>句读 · 互动英文阅读</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232457ce'/%3E%3Ctext x='32' y='45' text-anchor='middle' fill='white' font-size='42'%3E句%3C/text%3E%3C/svg%3E">
-  <script src="appearance.js?v=20261018-paperdark2"></script><link rel="stylesheet" href="styles.css?v=20261018-paperdark2"><link rel="stylesheet" href="theme.css?v=20261018-paperdark2"><script src="vendor/jszip.min.js" defer></script><script src="import-browser.js?v=20261018-2" defer></script><script src="app.js?v=20261018-b2" defer></script>
-<link rel="stylesheet" href="review.css?v=1"><script src="review.js?v=1" defer></script><link rel="stylesheet" href="mobile-paste.css?v=1"><script src="mobile-paste.js?v=2" defer></script><script src="feedback.js?v=1" defer></script></head>
+  <script src="appearance.js?v=20261018-paperdark2"></script><link rel="stylesheet" href="styles.css?v=20261018-paperdark2"><link rel="stylesheet" href="theme.css?v=20261018-paperdark2"><script src="vendor/jszip.min.js" defer></script><script src="import-browser.js?v=20261018-2" defer></script><script src="app.js?v=20261018-home1" defer></script>
+<link rel="stylesheet" href="review.css?v=1"><script src="review.js?v=1" defer></script><link rel="stylesheet" href="mobile-paste.css?v=1"><script src="mobile-paste.js?v=3" defer></script><script src="feedback.js?v=1" defer></script><link rel="stylesheet" href="home.css?v=1"><script src="home.js?v=1" defer></script></head>
 <body>
-<div id="mobile-bar"><strong>句读</strong><span id="mobile-article-label">阅读空间</span><button id="mobile-menu-open" aria-label="打开阅读菜单" aria-haspopup="dialog">☰ 菜单</button></div>
+<div id="mobile-bar"><a href="./" id="mobile-home" aria-label="句读首页">句读</a><span id="mobile-article-label">阅读空间</span><button id="mobile-menu-open" aria-label="打开阅读菜单" aria-haspopup="dialog">☰ 菜单</button></div>
 <aside class="sidebar">
   <a class="brand" href="./" aria-label="句读首页"><span class="brand-mark">句</span><span>句读<small>READ BETWEEN THE LINES</small></span></a>
   <div class="local-label"><span></span> 我的阅读空间</div>
@@ -34,6 +34,7 @@
     <div class="hint" id="hint"><span class="hint-icon">⌁</span><span class="desktop-hint">按住 <kbd id="shortcut-label">空格</kbd> ＋ 左键点击句子，查看完整翻译与语法解析。</span><span class="touch-hint">长按句子约半秒，查看完整翻译与语法解析。</span><button id="hint-settings" aria-label="修改查询快捷键">修改</button></div>
     <div id="notice" role="status" hidden></div>
     <aside id="shortcut-tutorial" class="shortcut-tutorial" hidden aria-live="polite"><div class="tutorial-top"><span id="tutorial-progress"></span><button id="tutorial-skip">跳过引导</button></div><h2 id="tutorial-title"></h2><p id="tutorial-description"></p><div id="tutorial-keys"></div></aside>
+    <section id="home-library" aria-labelledby="home-library-title" hidden><div class="home-library-heading"><h2 id="home-library-title">我的文章</h2><span id="home-library-count" class="muted"></span></div><p class="muted">选择一篇，继续阅读。文章保存在当前浏览器中。</p><div id="article-cards"></div></section>
     <article id="reader" aria-label="文章正文"></article>
     <section id="empty-state"><div class="empty-symbol">Aa<span>。</span></div><h2>把你的文章，变成互动读本</h2><p>第一列写句子，第二列写翻译与解析。<br>拖入 Excel，按原顺序连成文章。</p><button id="empty-import" class="primary">选择 .xlsx 文件</button><button id="empty-sample" class="secondary">先读一篇示例</button><p class="small">支持 .xlsx、.csv · 可同时选择多个文件 · 每张工作表一篇文章 · 空行表示分段</p></section>
     <nav id="article-navigation" class="article-navigation" aria-label="篇章导航" hidden><p id="article-position"></p><div><button id="previous-article" class="article-nav-button"><span>← 上一篇</span><strong id="previous-title"></strong></button><button id="next-article" class="article-nav-button"><span>下一篇 →</span><strong id="next-title"></strong></button></div></nav><footer class="reading-footer"><span id="footer-count">留一点时间，给理解。</span><span>句读 / READ WITH INTENTION</span></footer>

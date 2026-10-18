@@ -39,7 +39,8 @@ function selectArticle(id) {
   if(document.getElementById('mobile-article-label'))document.getElementById('mobile-article-label').textContent=active?.title||'阅读空间';
   renderLibrary();renderArticleNavigation();reader.replaceChildren();visibleEntries=[];geometryDirty=true;
   $('text-button').disabled=!active;$('delete-button').disabled=!active;$('empty-state').hidden=!!active;
-  if(!active){$('article-title').textContent='让每个句子，都读得明白。';$('toolbar-title').textContent='开始阅读';$('article-meta').textContent='从一张两列的 Excel 开始。';$('footer-count').textContent='留一点时间，给理解。';notify('');return;}
+  renderHome();
+  if(!active){$('article-title').textContent='让每个句子，都读得明白。';$('toolbar-title').textContent='我的文章';$('article-meta').textContent=articles.length?'你的文章都在这里，选择一篇开始阅读。':'导入 Excel 或粘贴解析文本，开始阅读。';$('footer-count').textContent='留一点时间，给理解。';notify('');return;}
   $('article-title').textContent=active.title;$('toolbar-title').textContent=active.title;
   const paragraphs = active.matchedParagraphs || groupRows(active.entries);
   let ordinal=0, matchedCount=0;
@@ -330,7 +331,7 @@ $('text-input').onchange=async e=>{
 };
 async function start(){applySettings();try{database=await openDatabase();articles=await dbAction('readonly',store=>store.getAll());articles.sort((a,b)=>b.createdAt-a.createdAt||(a.batchIndex??0)-(b.batchIndex??0));}catch{$('save-state').textContent='浏览器存储不可用';}
   let id=null;try{id=localStorage.getItem(storageScope + 'judu-active');}catch{}
-  if(articles.length)selectArticle(articles.find(a=>a.id===id)?.id||articles[0].id);else selectArticle(null);
+  if(articles.length&&id)selectArticle(articles.find(a=>a.id===id)?.id||null);else selectArticle(null);
   fetch('assets/AI提示词.md?v=20261018-1').then(r=>r.ok?r.text():Promise.reject()).then(t=>$('prompt-text').value=t).catch(()=>$('prompt-text').value='提示词文件加载失败，请查看文件夹内的 AI提示词.md。');
 }
 start();
