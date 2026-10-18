@@ -8,9 +8,14 @@ let database = null, hot = null, selected = null, geometry = [], geometryDirty =
 let lastPointer = null, pointerStart = null, busy = false, recording = false, draftKeys = ['Space'];
 const held = new Set();
 let touchPress = null;
+let lookupScrollTarget = null;
 function cancelTouchPress(){if(touchPress){clearTimeout(touchPress.timer);touchPress=null;}}
-let settings = {keys: ['Space'], fontSize: 22};
-try { const s = JSON.parse(localStorage.getItem(storageScope + 'judu-settings')); if (s && Array.isArray(s.keys) && s.keys.length && s.keys.length < 8) settings = {keys:s.keys, fontSize: Math.min(32,Math.max(18,Number(s.fontSize)||22))}; } catch {}
+const defaultNavigation={sentencePrevious:['ArrowUp'],sentenceNext:['ArrowDown'],articlePrevious:['ArrowLeft'],articleNext:['ArrowRight']};
+const actionLabels={query:'查询句子',sentencePrevious:'上一句',sentenceNext:'下一句',articlePrevious:'上一篇',articleNext:'下一篇'};
+const cloneNavigation=n=>Object.fromEntries(Object.entries(n).map(([k,v])=>[k,[...v]]));
+let draftNavigation=cloneNavigation(defaultNavigation),recordingAction='query',recordingBefore=null,tutorial=null;
+let settings = {keys: ['Space'], fontSize: 22,navigation:cloneNavigation(defaultNavigation)};
+try { const s = JSON.parse(localStorage.getItem(storageScope + 'judu-settings')); if (s && Array.isArray(s.keys) && s.keys.length && s.keys.length < 8) settings = {keys:s.keys, fontSize: Math.min(32,Math.max(18,Number(s.fontSize)||22)),navigation:Object.fromEntries(Object.entries(defaultNavigation).map(([k,v])=>[k,Array.isArray(s.navigation?.[k])&&s.navigation[k].length&&s.navigation[k].length<8?s.navigation[k]:v]))}; } catch {}
 const keyName = (code) => ({Space:'空格',Alt:'Option / Alt',Shift:'Shift',Control:'Control',Meta:'⌘ Command',ArrowUp:'↑',ArrowDown:'↓',ArrowLeft:'←',ArrowRight:'→',Backquote:'`',Minus:'-',Equal:'=',BracketLeft:'[',BracketRight:']',Backslash:'\\',Semicolon:';',Quote:"'",Comma:',',Period:'.',Slash:'/',CapsLock:'Caps Lock'}[code] || code.replace(/^Key|^Digit/,''));
 const canonicalKey = code => code.replace(/^(Shift|Alt|Control|Meta)(Left|Right)$/, '$1');
 const chordLabel = keys => keys.map(keyName).join(' + ');
@@ -21,7 +26,7 @@ function notify(text) { $('notice').textContent=text; $('notice').hidden=!text; 
 function openDatabase() { return new Promise((resolve,reject)=>{const req=indexedDB.open(storageScope + 'judu-reader',1);req.onupgradeneeded=()=>req.result.createObjectStore('articles',{keyPath:'id'});req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);}); }
 function dbAction(mode, action) { return new Promise((resolve,reject)=>{ if(!database){reject(new Error('storage unavailable'));return;}const tx=database.transaction('articles',mode);const req=action(tx.objectStore('articles'));tx.oncomplete=()=>resolve(req?.result);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);}); }
 async function saveArticle(article) { try{await dbAction('readwrite',store=>store.put(article));$('save-state').textContent='已保存在此浏览器';}catch{$('save-state').textContent='本次阅读未保存';toast('浏览器存储不可用或空间不足，请保留原始文件。');} }
-function applySettings() { document.documentElement.style.setProperty('--font-size', settings.fontSize+'px');$('shortcut-label').textContent=chordLabel(settings.keys);geometryDirty=true;clearHot(); }
+function applySettings() { document.documentElement.style.setProperty('--font-size', settings.fontSize+'px');$('shortcut-label').textContent=chordLabel(settings.keys);geometryDirty=true;clearHot();$('lookup-key-hint').textContent=chordLabel(settings.navigation.sentencePrevious)+' / '+chordLabel(settings.navigation.sentenceNext)+' 上下句 · Esc 关闭';if(tutorial)renderTutorial(); }
 function renderLibrary() {
   $('library').replaceChildren();$('library-count').textContent=articles.length;
   articles.forEach(a=>{const btn=element('button',undefined,'library-item'+(a.id===activeId?' active':''));btn.setAttribute('aria-current',a.id===activeId?'page':'false');btn.append(element('strong',a.title),element('small',`${a.entries.length} 句${a.sample?' · 示例文章':a.filename?' · '+a.filename:''}`));btn.onclick=()=>navigateToArticle(a.id);$('library').append(btn);});
@@ -30,6 +35,7 @@ function selectArticle(id) {
   cancelTouchPress();
   closeLookup(false);clearHot();activeId=id;active=articles.find(a=>a.id===id)||null;
   try{localStorage.setItem(storageScope + 'judu-active',id||'');}catch{}
+  if(tutorial&&active&&!tutorial.ids.includes(active.id))stopTutorial();
   renderLibrary();renderArticleNavigation();reader.replaceChildren();visibleEntries=[];geometryDirty=true;
   $('text-button').disabled=!active;$('delete-button').disabled=!active;$('empty-state').hidden=!!active;
   if(!active){$('article-title').textContent='让每个句子，都读得明白。';$('toolbar-title').textContent='开始阅读';$('article-meta').textContent='从一张两列的 Excel 开始。';$('footer-count').textContent='留一点时间，给理解。';notify('');return;}
@@ -46,6 +52,7 @@ function selectArticle(id) {
   $('footer-count').textContent=`${matchedCount} / ${visibleEntries.length} 句已关联解析`;
   const warns=[...(active.warnings||[])];if(active.matchReport)warns.unshift(active.matchReport);
   notify(warns.length?warns.slice(0,8).join('\n')+(warns.length>8?`\n另有 ${warns.length-8} 条提示。`:''):'');
+  if(tutorial)renderTutorial();
 }
 function groupRows(entries){const groups=[];let last=null;for(const entry of entries){if(last!==entry.paragraph){groups.push([]);last=entry.paragraph;}const p=groups.at(-1);if(p.length)p.push({gap:true,sentence:' '});p.push(entry);}return groups;}
 function renderArticleNavigation(){
@@ -62,7 +69,7 @@ function navigateToArticle(id){selectArticle(id);$('article-title').scrollIntoVi
 $('previous-article').onclick=()=>{const i=articles.findIndex(a=>a.id===activeId);if(i>0)navigateToArticle(articles[i-1].id);};
 $('next-article').onclick=()=>{const i=articles.findIndex(a=>a.id===activeId);if(i>=0&&i<articles.length-1)navigateToArticle(articles[i+1].id);};
 async function importFiles(input){
-  const files=Array.from(input||[]);if(!files.length||busy)return;
+  const files=Array.from(input||[]);if(!files.length||busy)return;stopTutorial();
   busy=true;$('import-button').disabled=true;
   const added=[],failures=[],batchId=crypto.randomUUID(),createdAt=Date.now();
   try{
@@ -87,9 +94,45 @@ async function importFiles(input){
   }finally{busy=false;$('import-button').disabled=false;$('import-button').textContent='＋ 导入 Excel 文章';$('file-input').value='';}
 }
 async function loadSample(){
-  const previous=articles.find(a=>a.sample);if(previous){selectArticle(previous.id);return;}
-  try{const res=await fetch('assets/sample.json');if(!res.ok)throw Error();const sample=await res.json();sample.id=crypto.randomUUID();sample.sample=true;sample.createdAt=Date.now();articles.unshift(sample);await saveArticle(sample);selectArticle(sample.id);}catch{toast('示例加载失败，请刷新页面或检查网站文件是否上传完整。');}
+  try{
+    const data=await Promise.all(['assets/sample.json','assets/sample-next.json'].map(async url=>{const res=await fetch(url);if(!res.ok)throw Error();return res.json();}));
+    const createdAt=Date.now();const examples=data.map((data,i)=>{
+      const prior=articles.find(a=>a.sample&&(a.sampleKey===String(i)||a.title===data.title));
+      return {...data,id:prior?.id||crypto.randomUUID(),sample:true,sampleKey:String(i),createdAt,batchIndex:i};
+    });
+    articles=examples.concat(articles.filter(a=>!examples.some(e=>e.id===a.id)));
+    for(const example of examples)await saveArticle(example);
+    tutorial={step:0,ids:examples.map(a=>a.id)};navigateToArticle(examples[0].id);renderTutorial();
+  }catch{toast('示例加载失败，请刷新页面或检查网站文件是否上传完整。');}
 }
+function stopTutorial(){tutorial=null;$('shortcut-tutorial').hidden=true;reader.querySelectorAll('.tutorial-target').forEach(el=>el.classList.remove('tutorial-target'));}
+function advanceTutorial(action){
+  if(!tutorial)return;
+  const steps=['open','sentenceNext','sentencePrevious','close','articleNext','articlePrevious'];
+  if(steps[tutorial.step]===action){tutorial.step=isTouchReading()&&action==='open'?6:tutorial.step+1;renderTutorial();}
+}
+function renderTutorial(){
+  if(!tutorial)return;
+  const mobile=isTouchReading();
+  const stages=[
+    ['打开句子解析',mobile?'长按下面高亮的第一句。':'按住查询键，再左键点击下面高亮的第一句。',mobile?['长按约半秒']:[...settings.keys,'MouseLeft']],
+    ['试试下一句','解析已打开，按下快捷键，查看下一句。',settings.navigation.sentenceNext],
+    ['回到上一句','再按上一句的快捷键，回到刚才的句子。',settings.navigation.sentencePrevious],
+    ['回到文章','按 Esc 关闭解析。关闭后，上下方向键仍能正常滚动。',['Escape']],
+    ['切换下一篇','现在没有打开解析，按快捷键进入第二篇示例。',settings.navigation.articleNext],
+    ['返回上一篇','按上一篇的快捷键，返回博物馆故事。',settings.navigation.articlePrevious],
+    ['练习完成',mobile?'你已学会长按查询。快捷键练习可在电脑端体验。':'你已学会查询、上下句和篇章切换。可以开始自由阅读，也可在设置中修改快捷键。',[]]
+  ];
+  const [title,description,keys]=stages[tutorial.step];
+  $('shortcut-tutorial').classList.toggle('tutorial-docked',tutorial.step>0&&tutorial.step<6);
+  $('shortcut-tutorial').hidden=false;$('tutorial-title').textContent=title;$('tutorial-description').textContent=description;
+  $('tutorial-progress').textContent=tutorial.step<6?`快捷键练习 ${tutorial.step+1} / 6`:'快捷键练习已完成';
+  $('tutorial-keys').replaceChildren(...keys.map(k=>element('kbd',k==='MouseLeft'?'左键单击':k==='Escape'?'Esc':keyName(k),'tutorial-key')));
+  $('tutorial-skip').textContent=tutorial.step===6?'开始阅读':'跳过引导';
+  reader.querySelectorAll('.tutorial-target').forEach(el=>el.classList.remove('tutorial-target'));
+  if(tutorial.step===0&&activeId===tutorial.ids[0])reader.querySelector('.sentence')?.classList.add('tutorial-target');
+}
+$('tutorial-skip').onclick=stopTutorial;
 function measure(){geometry=[];reader.querySelectorAll('.sentence').forEach(span=>{const range=document.createRange();range.selectNodeContents(span);for(const r of range.getClientRects()){if(r.width>0&&r.height>0)geometry.push({span,left:r.left+scrollX,right:r.right+scrollX,top:r.top+scrollY,bottom:r.bottom+scrollY});}});geometryDirty=false;}
 function hitSentence(x,y){
   if(geometryDirty)measure();x+=scrollX;y+=scrollY;let best=null,bestScore=Infinity;
@@ -147,39 +190,106 @@ function showLookup(span,x,y,keyboard=false){
   if(!entry.analysis){const p=element('p','这句话还没有匹配到解析。请在 Excel 的第二列补充对应翻译与语法解析，再重新导入。');$('lookup-analysis').append(p);}else{
     for(const section of analysisSections(entry.analysis)){const box=element('section',undefined,'analysis-section'+(/翻译/.test(section.title)?' translation':''));box.append(element('h3',section.title),element('p',section.lines.join('\n').trim()));$('lookup-analysis').append(box);}
   }
+  advanceTutorial('open');
   lookup.hidden=false;lookup.scrollTop=0;lookup.style.visibility='hidden';lookup.style.left='12px';lookup.style.top='12px';
   requestAnimationFrame(()=>{const w=lookup.offsetWidth,h=lookup.offsetHeight;const left=Math.min(Math.max(12,x-24),innerWidth-w-12);let top=y+18;if(top+h>innerHeight-12)top=y-h-18;if(top<12)top=Math.max(12,Math.min(innerHeight-h-12,y-h/2));lookup.style.left=left+'px';lookup.style.top=top+'px';lookup.style.visibility='visible';if(keyboard)lookup.focus({preventScroll:true});});
 }
-function closeLookup(restoreFocus=false){lookup.hidden=true;if(restoreFocus)selected?.focus({preventScroll:true});selected?.classList.remove('selected');selected=null;}
+function moveLookupSentence(direction){
+  if(lookup.hidden||!selected)return;
+  const index=Number(selected.dataset.index)+direction;
+  if(index<0||index>=visibleEntries.length)return;
+  const span=reader.querySelector(`.sentence[data-index="${index}"]`);
+  if(!span)return;
+  const popup=lookup.getBoundingClientRect();
+  const oldScroll=scrollY;
+  span.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});
+  if(scrollY!==oldScroll)lookupScrollTarget=scrollY;
+  showLookup(span,popup.left+24,popup.top-18,true);
+  advanceTutorial(direction<0?'sentencePrevious':'sentenceNext');
+}
+function closeLookup(restoreFocus=false){lookupScrollTarget=null;lookup.hidden=true;if(restoreFocus)selected?.focus({preventScroll:true});selected?.classList.remove('selected');selected=null;}
 $('lookup-close').onclick=()=>closeLookup(true);
 document.addEventListener('pointerdown',e=>{if(!lookup.hidden&&!lookup.contains(e.target)){if(reader.contains(e.target)&&chordDown(e))return;closeLookup(false);}});
-window.addEventListener('scroll',()=>{cancelTouchPress();closeLookup(false);},{passive:true});
+window.addEventListener('scroll',()=>{
+  cancelTouchPress();
+  if(lookupScrollTarget!==null&&Math.abs(scrollY-lookupScrollTarget)<1){lookupScrollTarget=null;return;}
+  closeLookup(false);
+},{passive:true});
 window.addEventListener('resize',()=>{geometryDirty=true;closeLookup(false);});
 new ResizeObserver(()=>{geometryDirty=true;}).observe(reader);
 document.fonts?.ready.then(()=>{geometryDirty=true;});
 function resetHeld(){cancelTouchPress();held.clear();pointerStart=null;clearHot();}
 window.addEventListener('blur',resetHeld);document.addEventListener('visibilitychange',resetHeld);
+function draftKeysFor(action){return action==='query'?draftKeys:draftNavigation[action];}
+function setDraftKeys(action,keys){if(action==='query')draftKeys=[...keys];else draftNavigation[action]=[...keys];renderShortcutDrafts();}
+function renderShortcutDrafts(){
+  $('settings-shortcut').textContent=chordLabel(draftKeys);
+  for(const action of Object.keys(defaultNavigation)){
+    const btn=document.querySelector(`[data-record-action="${action}"]`);
+    btn.textContent=recording&&recordingAction===action?'请按下组合键…':chordLabel(draftNavigation[action]);
+    btn.classList.toggle('recording',recording&&recordingAction===action);
+  }
+  $('record-key').classList.toggle('recording',recording&&recordingAction==='query');
+  $('record-key').textContent=recording&&recordingAction==='query'?'请按下组合键…':'录制自定义查询键';
+}
+function beginRecording(action){recordingBefore=[...draftKeysFor(action)];resetHeld();recording=true;recordingAction=action;renderShortcutDrafts();$('record-help').textContent=`正在录制「${actionLabels[action]}」：同时按下需要的键，再全部松开。Esc 取消。`;}
+function keyboardMatches(e,keys){
+  const actual=new Set(held);actual.add(canonicalKey(e.code));
+  for(const [flag,key] of [['altKey','Alt'],['ctrlKey','Control'],['metaKey','Meta'],['shiftKey','Shift']]){if(e[flag])actual.add(key);else actual.delete(key);}
+  return actual.size===keys.length&&keys.every(k=>actual.has(k));
+}
+function shortcutProblem(){
+  const same=(a,b)=>a.length===b.length&&a.every(k=>b.includes(k));
+  for(const [a,b] of [['sentencePrevious','sentenceNext'],['articlePrevious','articleNext']])if(same(draftNavigation[a],draftNavigation[b]))return `「${actionLabels[a]}」和「${actionLabels[b]}」不能使用相同的按键。`;
+  for(const action of Object.keys(defaultNavigation)){
+    const nav=draftNavigation[action];
+    if(draftKeys.every(k=>nav.includes(k))||nav.every(k=>draftKeys.includes(k)))return `「${actionLabels[action]}」与查询键相互包含，会在查询前触发切换，请换一个组合。`;
+  }
+  return '';
+}
 document.addEventListener('keydown',e=>{
   if(e.isComposing)return;
-  if(e.code==='Escape'){if(recording){recording=false;$('record-key').classList.remove('recording');$('record-key').textContent='录制自定义按键组合';$('record-help').textContent='已取消录制。';}else closeLookup(true);resetHeld();return;}
+  if(e.code==='Escape'){
+    if(recording){e.preventDefault();e.stopPropagation();recording=false;if(recordingBefore)setDraftKeys(recordingAction,recordingBefore);renderShortcutDrafts();$('record-help').textContent='已取消录制。';}
+    else{closeLookup(true);advanceTutorial('close');}
+    resetHeld();return;
+  }
   const key=canonicalKey(e.code);
-  if(recording){e.preventDefault();e.stopPropagation();held.add(key);draftKeys=[...held].sort();$('settings-shortcut').textContent=chordLabel(draftKeys);$('record-help').textContent='松开按键后录制完成，再点击“保存设置”。';return;}
+  if(recording){e.preventDefault();e.stopPropagation();held.add(key);setDraftKeys(recordingAction,[...held].sort());$('record-help').textContent='松开全部按键后录制完成，再点击「保存设置」。';return;}
   if(isInput(e.target)||document.querySelector('dialog[open]'))return;
   held.add(key);
+  if(!lookup.hidden&&selected){
+    const action=['sentencePrevious','sentenceNext'].find(a=>keyboardMatches(e,settings.navigation[a]));
+    if(action){e.preventDefault();moveLookupSentence(action==='sentencePrevious'?-1:1);return;}
+  }else if(active){
+    const action=['articlePrevious','articleNext'].find(a=>keyboardMatches(e,settings.navigation[a]));
+    if(action){
+      e.preventDefault();
+      if(!e.repeat){const i=articles.findIndex(a=>a.id===activeId),next=i+(action==='articlePrevious'?-1:1);if(next>=0&&next<articles.length){navigateToArticle(articles[next].id);advanceTutorial(action);}}
+      return;
+    }
+  }
   if(settings.keys.includes(key)){e.preventDefault();if(lastPointer)updateHot(lastPointer);}
 });
 document.addEventListener('keyup',e=>{
   held.delete(canonicalKey(e.code));if(canonicalKey(e.code)==='Meta')held.clear();clearHot();
-  if(recording&&held.size===0){recording=false;$('record-key').classList.remove('recording');$('record-key').textContent='重新录制';$('record-help').textContent='已记录 '+chordLabel(draftKeys)+' ＋ 左键单击。点击保存生效。';}
+  if(recording&&held.size===0){recording=false;renderShortcutDrafts();$('record-help').textContent=`已记录「${actionLabels[recordingAction]}」：${chordLabel(draftKeysFor(recordingAction))}。点击保存后生效。`;}
 });
-function openSettings(){resetHeld();draftKeys=[...settings.keys];recording=false;$('settings-shortcut').textContent=chordLabel(draftKeys);$('font-size').value=settings.fontSize;$('font-value').textContent=settings.fontSize+' px';$('record-key').classList.remove('recording');$('record-key').textContent='录制自定义按键组合';$('record-help').textContent='可使用字母、数字、功能键或组合键。部分系统快捷键会被系统优先处理。Esc 用于取消。';$('settings-dialog').showModal();}
+function openSettings(){resetHeld();closeLookup();draftKeys=[...settings.keys];draftNavigation=cloneNavigation(settings.navigation);recording=false;renderShortcutDrafts();$('font-size').value=settings.fontSize;$('font-value').textContent=settings.fontSize+' px';$('record-help').textContent='点击要修改的快捷键，按下组合后全部松开，再保存。Esc 用于取消或关闭解析；部分组合可能被系统占用。';$('settings-error').hidden=true;$('settings-dialog').showModal();}
 $('settings-dialog').addEventListener('close',()=>{recording=false;resetHeld();});
 $('settings-button').onclick=openSettings;$('hint-settings').onclick=openSettings;
-document.querySelectorAll('[data-preset]').forEach(btn=>btn.onclick=()=>{recording=false;resetHeld();draftKeys=[btn.dataset.preset];$('settings-shortcut').textContent=chordLabel(draftKeys);$('record-key').classList.remove('recording');$('record-key').textContent='录制自定义按键组合';});
-$('record-key').onclick=()=>{resetHeld();recording=true;$('record-key').classList.add('recording');$('record-key').textContent='请按下想使用的键…';$('record-help').textContent='同时按下需要的键，然后松开。Esc 取消。';};
+document.querySelectorAll('[data-preset]').forEach(btn=>btn.onclick=()=>{recording=false;resetHeld();draftKeys=[btn.dataset.preset];renderShortcutDrafts();});
+$('record-key').onclick=()=>beginRecording('query');
+document.querySelectorAll('[data-record-action]').forEach(btn=>btn.onclick=()=>beginRecording(btn.dataset.recordAction));
 $('font-size').oninput=e=>$('font-value').textContent=e.target.value+' px';
-$('save-settings').onclick=()=>{if(recording){toast('请先完成按键录制。');return;}settings={keys:draftKeys,fontSize:Number($('font-size').value)};try{localStorage.setItem(storageScope + 'judu-settings',JSON.stringify(settings));}catch{toast('设置仅在本次阅读中生效。');}applySettings();$('settings-dialog').close();};
-$('reset-settings').onclick=()=>{recording=false;resetHeld();draftKeys=['Space'];$('settings-shortcut').textContent='空格';$('font-size').value=22;$('font-value').textContent='22 px';$('record-key').classList.remove('recording');$('record-key').textContent='录制自定义按键组合';};
+$('save-settings').onclick=()=>{
+  if(recording){toast('请先完成按键录制。');return;}
+  const error=shortcutProblem();$('settings-error').hidden=!error;$('settings-error').textContent=error;if(error)return;
+  settings={keys:[...draftKeys],fontSize:Number($('font-size').value),navigation:cloneNavigation(draftNavigation)};
+  try{localStorage.setItem(storageScope+'judu-settings',JSON.stringify(settings));}catch{toast('设置仅在本次阅读中生效。');}
+  applySettings();$('settings-dialog').close();
+};
+$('reset-settings').onclick=()=>{recording=false;resetHeld();draftKeys=['Space'];draftNavigation=cloneNavigation(defaultNavigation);$('font-size').value=22;$('font-value').textContent='22 px';$('settings-error').hidden=true;renderShortcutDrafts();};
 async function copy(text){try{await navigator.clipboard.writeText(text);toast('已复制');}catch{toast('复制未成功，请选中文本后手动复制。');}}
 $('copy-analysis').onclick=()=>{if(selected){const a=visibleEntries[Number(selected.dataset.index)];copy(a.sentence+'\n\n'+(a.analysis||'尚无解析'));}};
 $('copy-prompt').onclick=()=>copy($('prompt-text').value);

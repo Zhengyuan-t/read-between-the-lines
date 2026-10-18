@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>句读 · 互动英文阅读</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232f5145'/%3E%3Ctext x='32' y='45' text-anchor='middle' fill='white' font-size='42'%3E句%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=20261018-1"><script src="vendor/jszip.min.js" defer></script><script src="import-browser.js?v=20261018-2" defer></script><script src="app.js?v=20261018-1" defer></script>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232457ce'/%3E%3Ctext x='32' y='45' text-anchor='middle' fill='white' font-size='42'%3E句%3C/text%3E%3C/svg%3E">
+  <script src="appearance.js?v=20261018-paperdark2"></script><link rel="stylesheet" href="styles.css?v=20261018-paperdark2"><link rel="stylesheet" href="theme.css?v=20261018-paperdark2"><script src="vendor/jszip.min.js" defer></script><script src="import-browser.js?v=20261018-2" defer></script><script src="app.js?v=20261018-b2" defer></script>
 </head>
 <body>
 <aside class="sidebar">
@@ -22,13 +22,14 @@
   </div>
 </aside>
 <main class="main">
-  <header class="toolbar"><span class="breadcrumb">阅读空间 <span>/</span> <b id="toolbar-title">开始阅读</b></span><div class="toolbar-actions"><button id="text-button" class="text-button" disabled>匹配原文 TXT</button><input id="text-input" type="file" accept=".txt" hidden><button id="delete-button" class="icon-button" aria-label="删除当前文章" title="删除当前文章" disabled>⌫</button></div></header>
+  <header class="toolbar"><span class="breadcrumb">阅读空间 <span>/</span> <b id="toolbar-title">开始阅读</b></span><div class="toolbar-actions"><button id="appearance-button" aria-label="调整外观与黑暗模式">◐ 外观</button><button id="text-button" class="text-button" disabled>匹配原文 TXT</button><input id="text-input" type="file" accept=".txt" hidden><button id="delete-button" class="icon-button" aria-label="删除当前文章" title="删除当前文章" disabled>⌫</button></div></header>
   <div class="reading-area" id="drop-zone">
     <div class="page-meta"><span class="eyebrow">YOUR SLOW READING SPACE</span><span class="save-state" id="save-state">就绪</span></div>
     <h1 id="article-title">让每个句子，都读得明白。</h1>
     <div class="article-meta" id="article-meta">从一张两列的 Excel 开始。</div>
     <div class="hint" id="hint"><span class="hint-icon">⌁</span><span class="desktop-hint">按住 <kbd id="shortcut-label">空格</kbd> ＋ 左键点击句子，查看完整翻译与语法解析。</span><span class="touch-hint">长按句子约半秒，查看完整翻译与语法解析。</span><button id="hint-settings" aria-label="修改查询快捷键">修改</button></div>
     <div id="notice" role="status" hidden></div>
+    <aside id="shortcut-tutorial" class="shortcut-tutorial" hidden aria-live="polite"><div class="tutorial-top"><span id="tutorial-progress"></span><button id="tutorial-skip">跳过引导</button></div><h2 id="tutorial-title"></h2><p id="tutorial-description"></p><div id="tutorial-keys"></div></aside>
     <article id="reader" aria-label="文章正文"></article>
     <section id="empty-state"><div class="empty-symbol">Aa<span>。</span></div><h2>把你的文章，变成互动读本</h2><p>第一列写句子，第二列写翻译与解析。<br>拖入 Excel，按原顺序连成文章。</p><button id="empty-import" class="primary">选择 .xlsx 文件</button><button id="empty-sample" class="secondary">先读一篇示例</button><p class="small">支持 .xlsx、.csv · 可同时选择多个文件 · 每张工作表一篇文章 · 空行表示分段</p></section>
     <nav id="article-navigation" class="article-navigation" aria-label="篇章导航" hidden><p id="article-position"></p><div><button id="previous-article" class="article-nav-button"><span>← 上一篇</span><strong id="previous-title"></strong></button><button id="next-article" class="article-nav-button"><span>下一篇 →</span><strong id="next-title"></strong></button></div></nav><footer class="reading-footer"><span id="footer-count">留一点时间，给理解。</span><span>句读 / READ WITH INTENTION</span></footer>
@@ -39,13 +40,15 @@
   <div class="lookup-top"><span id="lookup-heading">句子解析</span><span id="lookup-index"></span><button id="lookup-close" class="icon-button" aria-label="关闭解析">×</button></div>
   <blockquote id="lookup-sentence" lang="en"></blockquote>
   <div id="lookup-analysis"></div>
-  <div class="lookup-footer"><span>ESC 关闭 · 点击其他句子切换</span><button id="copy-analysis">复制解析</button></div>
+  <div class="lookup-footer"><span id="lookup-key-hint">↑ / ↓ 上下句 · Esc 关闭</span><button id="copy-analysis">复制解析</button></div>
 </section>
 <dialog id="settings-dialog"><form method="dialog"><div class="dialog-title"><h2>按你的习惯阅读</h2><button class="icon-button" aria-label="关闭设置">×</button></div></form>
   <label class="field-label">查询快捷键</label><p class="muted">按住以下按键，再左键单击。左键单击始终固定。</p>
   <div class="preset-row"><button data-preset="Space">空格</button><button data-preset="Alt">Option / Alt</button><button data-preset="Shift">Shift</button></div>
   <div class="shortcut-preview"><kbd id="settings-shortcut">空格</kbd><span>＋ 左键单击</span></div>
   <button id="record-key" class="secondary">录制自定义按键组合</button><p id="record-help" class="small">可使用字母、数字、功能键或组合键。部分系统快捷键会被系统优先处理。Esc 用于取消。</p>
+  <label class="field-label">解析打开时 · 切换句子</label><div class="shortcut-grid"><label>上一句<button type="button" data-record-action="sentencePrevious" aria-label="录制上一句快捷键">↑</button></label><label>下一句<button type="button" data-record-action="sentenceNext" aria-label="录制下一句快捷键">↓</button></label></div>
+  <label class="field-label">解析关闭时 · 切换文章</label><div class="shortcut-grid"><label>上一篇<button type="button" data-record-action="articlePrevious" aria-label="录制上一篇快捷键">←</button></label><label>下一篇<button type="button" data-record-action="articleNext" aria-label="录制下一篇快捷键">→</button></label></div><p class="small">同一模式的两个动作不能同键；查询键和导航键不能相互包含。两种模式之间可复用按键。Esc 保留为关闭键。</p><p id="settings-error" role="alert" hidden></p>
   <label class="field-label" for="font-size">正文字号 <span id="font-value">22 px</span></label><input id="font-size" type="range" min="18" max="32" value="22">
   <div class="dialog-actions"><button id="reset-settings" class="secondary">恢复默认</button><button id="save-settings" class="primary">保存设置</button></div>
 </dialog>
@@ -56,6 +59,15 @@
   <label class="field-label" for="prompt-text">给 AI 的提示词</label><textarea id="prompt-text" readonly rows="12"></textarea><button id="copy-prompt" class="primary">复制完整提示词</button>
   <p class="small">文件无需上传服务器；网站展示你导入的解析，不调用 AI。支持未加密的 .xlsx；旧 .xls 请先另存为 .xlsx。</p>
 </dialog>
+<dialog id="appearance-dialog"><form method="dialog"><div class="dialog-title"><h2>阅读配色</h2><button class="icon-button" aria-label="关闭外观设置">×</button></div></form><p class="muted">选择背景与文字颜色，点击即应用并保存。桌面和手机均适配，选择保存在当前浏览器。</p><label class="field-label">背景配色</label><div class="appearance-options"><button data-color-theme="system" aria-pressed="false"><span class="palette-swatch swatch-system">Aa</span><span><strong>跟随系统</strong><small>自动切换明暗</small></span></button>
+<button data-color-theme="blue" aria-pressed="true"><span class="palette-swatch swatch-blue">Aa</span><span><strong>专注白</strong><small>默认 · 白底黑字</small></span></button>
+
+<button data-color-theme="paper" aria-pressed="false"><span class="palette-swatch swatch-paper">Aa</span><span><strong>纸白</strong><small>冷白纸面 · 黑灰文字</small></span></button>
+<button data-color-theme="warm" aria-pressed="false"><span class="palette-swatch swatch-warm">Aa</span><span><strong>暖纸</strong><small>柔和米色</small></span></button>
+<button data-color-theme="dark" aria-pressed="false"><span class="palette-swatch swatch-dark">Aa</span><span><strong>深夜</strong><small>中性深灰 · 柔和灰白</small></span></button>
+</div>
+<label class="field-label">文字颜色</label><div class="tone-options"><button data-text-tone="standard" aria-pressed="true">标准</button><button data-text-tone="soft" aria-pressed="false">柔和</button><button data-text-tone="contrast" aria-pressed="false">高对比</button></div>
+<div class="appearance-preview"><p>Read a little. Understand more.</p><small>让每个句子，都读得明白。</small></div><p id="appearance-status" role="status"></p><form method="dialog" class="dialog-actions"><button class="primary">完成</button></form></dialog>
 <dialog id="confirm-dialog"><h2>删除这篇文章？</h2><p>只从当前浏览器移除，原始 Excel 文件仍保留。</p><form method="dialog" class="dialog-actions"><button value="cancel" class="secondary">取消</button><button value="delete" class="danger">删除文章</button></form></dialog>
 <div id="toast" role="status" hidden></div>
 </body></html>
