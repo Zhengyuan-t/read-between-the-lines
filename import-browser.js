@@ -5,7 +5,15 @@ window.ReaderImport = (() => {
  const fail = message => { throw new Error(message); };
  const nodes=(el,name)=>[...el.getElementsByTagNameNS('*',name)];
  const text=(el,name)=>nodes(el,name)[0]?.textContent||'';
- function parseXML(source){if(/<!DOCTYPE|<!ENTITY/i.test(source))fail('文件包含不支持的 XML 声明。请重新保存为 .xlsx。');const d=new DOMParser().parseFromString(source,'application/xml');if(d.getElementsByTagName('parsererror').length)fail('工作簿 XML 损坏，请重新保存。');return d;}
+ function parseXML(source,path){
+  // A decoded UTF-8 BOM is content to WebKit's DOMParser, unlike a BOM in a byte stream.
+  source=source.replace(/^\uFEFF/,'');
+  if(/<!DOCTYPE|<!ENTITY/i.test(source))fail(`Excel 内部文件 ${path} 包含不支持的 XML 声明。`);
+  const d=new DOMParser().parseFromString(source,'application/xml');
+  const error=d.getElementsByTagName('parsererror')[0];
+  if(error){const detail=(error.textContent||'').replace(/\s+/g,' ').trim().slice(0,200);fail(`无法解析 Excel 内部文件 ${path}：${detail||'XML 格式不受当前浏览器支持。'}`);}
+  return d;
+ }
  function guardZIP(bytes){
   const v=new DataView(bytes);let end=-1;
   for(let i=v.byteLength-22;i>=Math.max(0,v.byteLength-65557);i--){if(v.getUint32(i,true)===0x06054b50){end=i;break;}}
@@ -40,7 +48,7 @@ window.ReaderImport = (() => {
  async function xlsx(bytes){
   guardZIP(bytes);
   let zip;try{zip=await JSZip.loadAsync(bytes);}catch{fail('这不是有效的 .xlsx 文件，请用 Excel 重新保存。');}
-  async function read(path){const file=zip.file(path);if(!file)fail('工作簿结构不完整，缺少 '+path);return parseXML(await file.async('string'));}
+  async function read(path){const file=zip.file(path);if(!file)fail('工作簿结构不完整，缺少 '+path);return parseXML(await file.async('string'),path);}
   const wb=await read('xl/workbook.xml'),rels=await read('xl/_rels/workbook.xml.rels');
   const targets=new Map(nodes(rels,'Relationship').filter(r=>r.getAttribute('TargetMode')!=='External').map(r=>[r.getAttribute('Id'),r.getAttribute('Target')]));
   const shared=zip.file('xl/sharedStrings.xml')?nodes(await read('xl/sharedStrings.xml'),'si').map(stringValue):[];
