@@ -36,6 +36,7 @@ function selectArticle(id) {
   closeLookup(false);clearHot();activeId=id;active=articles.find(a=>a.id===id)||null;
   try{localStorage.setItem(storageScope + 'judu-active',id||'');}catch{}
   if(tutorial&&active&&!tutorial.ids.includes(active.id))stopTutorial();
+  if(document.getElementById('mobile-article-label'))document.getElementById('mobile-article-label').textContent=active?.title||'阅读空间';
   renderLibrary();renderArticleNavigation();reader.replaceChildren();visibleEntries=[];geometryDirty=true;
   $('text-button').disabled=!active;$('delete-button').disabled=!active;$('empty-state').hidden=!!active;
   if(!active){$('article-title').textContent='让每个句子，都读得明白。';$('toolbar-title').textContent='开始阅读';$('article-meta').textContent='从一张两列的 Excel 开始。';$('footer-count').textContent='留一点时间，给理解。';notify('');return;}
@@ -190,6 +191,7 @@ function showLookup(span,x,y,keyboard=false){
   if(!entry.analysis){const p=element('p','这句话还没有匹配到解析。请在 Excel 的第二列补充对应翻译与语法解析，再重新导入。');$('lookup-analysis').append(p);}else{
     for(const section of analysisSections(entry.analysis)){const box=element('section',undefined,'analysis-section'+(/翻译/.test(section.title)?' translation':''));box.append(element('h3',section.title),element('p',section.lines.join('\n').trim()));$('lookup-analysis').append(box);}
   }
+  updateReviewSave();
   advanceTutorial('open');
   lookup.hidden=false;lookup.scrollTop=0;lookup.style.visibility='hidden';lookup.style.left='12px';lookup.style.top='12px';
   requestAnimationFrame(()=>{const w=lookup.offsetWidth,h=lookup.offsetHeight;const left=Math.min(Math.max(12,x-24),innerWidth-w-12);let top=y+18;if(top+h>innerHeight-12)top=y-h-18;if(top<12)top=Math.max(12,Math.min(innerHeight-h-12,y-h/2));lookup.style.left=left+'px';lookup.style.top=top+'px';lookup.style.visibility='visible';if(keyboard)lookup.focus({preventScroll:true});});
