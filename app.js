@@ -300,8 +300,10 @@ $('guide-button').onclick=()=>$('guide-dialog').showModal();
 $('import-button').onclick=$('empty-import').onclick=()=>$('file-input').click();
 $('file-input').onchange=e=>importFiles(e.target.files);
 $('sample-button').onclick=$('empty-sample').onclick=loadSample;
-$('delete-button').onclick=()=>$('confirm-dialog').showModal();
-$('confirm-dialog').addEventListener('close',async()=>{if($('confirm-dialog').returnValue!=='delete'||!active)return;try{await dbAction('readwrite',store=>store.delete(active.id));}catch{}articles=articles.filter(a=>a.id!==activeId);selectArticle(articles[0]?.id||null);});
+let pendingArticleDeletion=null;
+function requestArticleDeletion(id,fromHome=false){const article=articles.find(a=>a.id===id);if(!article)return;pendingArticleDeletion={id,fromHome};$('confirm-dialog').querySelector('h2').textContent='删除「'+article.title+'」？';$('confirm-dialog').querySelector('p').textContent='只从当前浏览器移除这篇文章，原始文件和已收藏的复习卡仍保留。';$('confirm-dialog').returnValue='cancel';$('confirm-dialog').showModal();}
+$('delete-button').onclick=()=>requestArticleDeletion(activeId);
+$('confirm-dialog').addEventListener('close',async()=>{const target=pendingArticleDeletion;pendingArticleDeletion=null;if($('confirm-dialog').returnValue!=='delete'||!target)return;try{if(database)await dbAction('readwrite',store=>store.delete(target.id));}catch{toast('删除未成功，请重试。');return;}articles=articles.filter(a=>a.id!==target.id);selectArticle(target.fromHome?null:articles[0]?.id||null);toast('文章已删除，复习卡仍保留。');});
 let dragDepth=0;
 document.addEventListener('dragenter',e=>{if(e.dataTransfer.types.includes('Files')){e.preventDefault();dragDepth++;$('drop-overlay').hidden=false;}});
 document.addEventListener('dragover',e=>{if(e.dataTransfer.types.includes('Files'))e.preventDefault();});
