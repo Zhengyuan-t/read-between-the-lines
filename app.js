@@ -32,6 +32,7 @@ function renderLibrary() {
   articles.forEach(a=>{const btn=element('button',undefined,'library-item'+(a.id===activeId?' active':''));btn.setAttribute('aria-current',a.id===activeId?'page':'false');btn.append(element('strong',a.title),element('small',`${a.entries.length} 句${a.sample?' · 示例文章':a.filename?' · '+a.filename:''}`));btn.onclick=()=>navigateToArticle(a.id);$('library').append(btn);});
 }
 function selectArticle(id) {
+  if(typeof exitVocabMode==='function')exitVocabMode();
   cancelTouchPress();
   closeLookup(false);clearHot();activeId=id;active=articles.find(a=>a.id===id)||null;
   try{localStorage.setItem(storageScope + 'judu-active',id||'');}catch{}
@@ -40,6 +41,7 @@ function selectArticle(id) {
   renderLibrary();renderArticleNavigation();reader.replaceChildren();visibleEntries=[];geometryDirty=true;
   $('text-button').disabled=!active;$('delete-button').disabled=!active;$('empty-state').hidden=!!active;
   renderHome();
+  $('vocab-tools').hidden=!active;
   if(!active){$('article-title').textContent='让每个句子，都读得明白。';$('toolbar-title').textContent='我的文章';$('article-meta').textContent=articles.length?'你的文章都在这里，选择一篇开始阅读。':'导入 Excel 或粘贴解析文本，开始阅读。';$('footer-count').textContent='留一点时间，给理解。';notify('');return;}
   $('article-title').textContent=active.title;$('toolbar-title').textContent=active.title;
   const paragraphs = active.matchedParagraphs || groupRows(active.entries);
@@ -54,6 +56,7 @@ function selectArticle(id) {
   $('footer-count').textContent=`${matchedCount} / ${visibleEntries.length} 句已关联解析`;
   const warns=[...(active.warnings||[])];if(active.matchReport)warns.unshift(active.matchReport);
   notify(warns.length?warns.slice(0,8).join('\n')+(warns.length>8?`\n另有 ${warns.length-8} 条提示。`:''):'');
+  if(typeof renderVocabulary==='function')renderVocabulary();
   if(tutorial)renderTutorial();
 }
 function groupRows(entries){const groups=[];let last=null;for(const entry of entries){if(last!==entry.paragraph){groups.push([]);last=entry.paragraph;}const p=groups.at(-1);if(p.length)p.push({gap:true,sentence:' '});p.push(entry);}return groups;}
@@ -336,7 +339,7 @@ async function start(){applySettings();try{database=await openDatabase();article
   if(articles.length&&id)selectArticle(articles.find(a=>a.id===id)?.id||null);else selectArticle(null);
   fetch('assets/AI提示词.md?v=20261018-1').then(r=>r.ok?r.text():Promise.reject()).then(t=>$('prompt-text').value=t).catch(()=>$('prompt-text').value='提示词文件加载失败，请查看文件夹内的 AI提示词.md。');
 }
-start();
+window.addEventListener('DOMContentLoaded',start,{once:true});
 
 const touchMedia=matchMedia('(hover: none) and (pointer: coarse)');
 function updateTouchHint(){document.documentElement.classList.toggle('touch-reader',touchMedia.matches);}
