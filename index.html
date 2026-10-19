@@ -16,6 +16,7 @@
   <div class="library-heading"><span>我的文章</span><span id="library-count">0</span></div>
   <nav id="library" aria-label="文章列表"></nav>
   <div class="sidebar-bottom">
+    <a class="quiet" href="pdf-reader.html" style="display:block;text-decoration:none">▤ PDF 原版阅读</a>
     <button id="feedback-open" class="quiet">✉ 意见反馈</button>
     <button id="paste-open" class="quiet">＋ 粘贴解析文本</button>
     <button id="review-open" class="quiet">↻ 轻量复习 <span id="review-count">0</span></button>
@@ -36,7 +37,7 @@
     <aside id="shortcut-tutorial" class="shortcut-tutorial" hidden aria-live="polite"><div class="tutorial-top"><span id="tutorial-progress"></span><button id="tutorial-skip">跳过引导</button></div><h2 id="tutorial-title"></h2><p id="tutorial-description"></p><div id="tutorial-keys"></div></aside>
     <section id="home-library" aria-labelledby="home-library-title" hidden><div class="home-library-heading"><h2 id="home-library-title">我的文章</h2><span id="home-library-count" class="muted"></span></div><p class="muted">选择一篇，继续阅读。文章保存在当前浏览器中。</p><div id="article-cards"></div></section>
     <div id="vocab-tools" hidden><button id="vocab-toggle" class="secondary" aria-pressed="false">＋ 标记生词</button><span id="vocab-mode-help" class="small">收藏单词或词组，保留原句。</span></div><article id="reader" aria-label="文章正文"></article>
-    <section id="empty-state"><div class="empty-symbol">Aa<span>。</span></div><h2>把你的文章，变成互动读本</h2><p>第一列写句子，第二列写翻译与解析。<br>拖入 Excel，按原顺序连成文章。</p><button id="empty-import" class="primary">选择 .xlsx 文件</button><button id="empty-sample" class="secondary">先读一篇示例</button><p class="small">支持 .xlsx、.csv · 可同时选择多个文件 · 每张工作表一篇文章 · 空行表示分段</p></section>
+    <section id="empty-state"><div class="empty-symbol">Aa<span>。</span></div><h2>把你的文章，变成互动读本</h2><p>第一列写句子，第二列写翻译与解析。<br>拖入 Excel，按原顺序连成文章。</p><a href="pdf-reader.html" class="secondary" style="display:inline-block;text-decoration:none;padding:12px;margin:6px">阅读 PDF 原版</a><button id="empty-import" class="primary">选择 .xlsx 文件</button><button id="empty-sample" class="secondary">先读一篇示例</button><p class="small">支持 .xlsx、.csv · 可同时选择多个文件 · 每张工作表一篇文章 · 空行表示分段</p></section>
     <section id="reading-wrap-up" hidden aria-labelledby="wrap-up-title"><h2 id="wrap-up-title">读完这一篇，留下一点收获</h2><p id="wrap-up-summary" class="muted" role="status"></p><div class="wrap-up-actions"><button id="wrap-up-pending" class="secondary">补充释义</button><button id="wrap-up-review" class="primary">复习到期内容</button><button id="wrap-up-next" class="secondary">下一篇 →</button></div><p class="small">不必一次学完，先处理几个最想记住的表达即可。</p></section>
     <nav id="article-navigation" class="article-navigation" aria-label="篇章导航" hidden><p id="article-position"></p><div><button id="previous-article" class="article-nav-button"><span>← 上一篇</span><strong id="previous-title"></strong></button><button id="next-article" class="article-nav-button"><span>下一篇 →</span><strong id="next-title"></strong></button></div></nav><footer class="reading-footer"><span id="footer-count">留一点时间，给理解。</span><span>句读 / READ WITH INTENTION</span></footer>
   </div>
